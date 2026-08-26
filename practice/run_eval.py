@@ -1,7 +1,10 @@
-import time, json, os
-from
+import time, json, os, requests
 
-def load_cases(path="../cases/cases.json"):
+
+from llm_eval_tool import config
+
+
+def load_cases(path="../practice/cases.json"):
     return json.load(open(path, encoding="utf-8"))
 
 
@@ -16,5 +19,46 @@ SYSTEM_PROMPT = """你是某电商平台的智能客服，负责售前咨询、�
 
 def call_api(question,max_retries=3):
     payload = {
-        "model":
+        "model": config.MODEL,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": question}
+        ],
+        "temperature": 0
     }
+    for i in range(1, max_retries + 1):
+        try:
+            r = requests.post(config.URL, json=payload, headers={"Authorization": f"Bearer {config.API_KEY}"}, timeout=100)
+            return r.json()["choices"][0]["message"]["content"], "ok"
+        except Exception as e:
+            print(f"尝试{i}次：{e}")
+            time.sleep(i * 2)
+    return "", "failed"
+
+def run_batch(cases, output_path="../practice/raw_results.jsonl"):
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        for i, case in enumerate(cases):
+            start = time.time()
+            answer, status = call_api(case["question"])
+            cost_time = round(time.time() - start, 2)
+            record = {
+                "id": case["id"],
+                "category": case["category"],
+                "difficulty": case["difficulty"],
+                "question": case["question"],
+                "golden_answer": case["golden_answer"],
+                "answer": answer,
+                "cost_time": cost_time,
+                "status": status,
+            }
+            f.write(json.dumps(record,ensure_ascii=False) + "\n")
+            f.flush()
+            print(f"已完成{i+1}/{len(cases)}, id={case['id']}, status={status}")
+            time.sleep(1)
+
+
+if __name__ == "__main__":
+    cases = load_cases()
+    run_batch(cases)
+    print("评测完成，结果已保存到 practice/raw_results.jsonl")
