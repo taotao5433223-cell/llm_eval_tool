@@ -24,25 +24,27 @@
 cases/cases.json（100条用例）
         │
         ▼
-  ┌─────────────┐
-  │  run_eval.py │  逐条调用被测模型，每条落盘
-  └──────┬──────┘
+  ┌──────────────────┐
+  │  run_eval.py     │  逐条调用被测模型，每条落盘
+  │  --model deepseek │  （支持 --model glm 切换模型）
+  └──────┬───────────┘
          │
          ▼
   results/raw_results.jsonl（模型原始回答）
          │
          ▼
-  ┌─────────────┐
-  │  scorer.py   │  规则评分（粗筛）+ LLM裁判（细判）
-  └──────┬──────┘
+  ┌──────────────────┐
+  │  scorer.py       │  规则评分（粗筛）+ LLM裁判（细判）
+  │  --model deepseek │  （支持 --model glm 切换模型）
+  └──────┬───────────┘
          │
          ▼
   results/scored_results.jsonl（评分结果）
          │
          ▼
-  ┌─────────────┐
-  │  report.py   │  生成评测报告
-  └──────┬──────┘
+  ┌──────────────────┐
+  │  report.py       │  自动检测所有评分结果，生成双模型对比报告
+  └──────┬───────────┘
          │
          ▼
   reports/eval_report.md
@@ -78,12 +80,12 @@ API_KEY = "sk-your-deepseek-key"
 URL = "https://api.deepseek.com/chat/completions"
 MODEL = "deepseek-v4-flash"
 
-# 被测模型B：GLM
+# 被测模型B：GLM (智谱)
 GLM_API_KEY = "your-glm-key"
 GLM_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-GLM_MODEL = "glm-5.3-flash"
+GLM_MODEL = "GLM-5.3-Flash"
 
-# 裁判模型：Qwen（与被测模型不同，避免自增强偏差）
+# 裁判模型：Qwen (通义千问)
 JUDGE_API_KEY = "sk-your-qwen-key"
 JUDGE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
 JUDGE_MODEL = "qwen3.8-max"
@@ -96,24 +98,23 @@ JUDGE_MODEL = "qwen3.8-max"
 pip install requests pytest
 
 # 2. 运行评测（模型A：DeepSeek）
-cd src
-python run_eval.py
+python src/run_eval.py --model deepseek
 # → results/raw_results.jsonl
 
-# 3. 评分（规则 + LLM裁判）
-python scorer.py
+# 3. 评分
+python src/scorer.py --model deepseek
 # → results/scored_results.jsonl
 
 # 4. 运行评测（模型B：GLM）
-python run_eval_glm.py
+python src/run_eval.py --model glm
 # → results/raw_results_GLM.jsonl
 
-# 5. 评分（模型B）
-python scorer_GLM.py
+# 5. 评分
+python src/scorer.py --model glm
 # → results/scored_results_GLM.jsonl
 
-# 6. 生成报告
-python report.py
+# 6. 生成报告（自动检测所有已评分结果，生成双模型对比）
+python src/report.py
 # → reports/eval_report.md
 
 # 7. 运行测试
@@ -128,11 +129,9 @@ llm-eval-tool/
 │   ├── cases.json              # 100条评测用例（核心资产）
 │   └── categories.md           # 类别定义与设计意图说明
 ├── src/
-│   ├── run_eval.py             # 评测运行器（DeepSeek）
-│   ├── run_eval_glm.py         # 评测运行器（GLM）
-│   ├── scorer.py               # 评分器：规则评分 + LLM裁判（DeepSeek）
-│   ├── scorer_GLM.py           # 评分器：规则评分 + LLM裁判（GLM）
-│   ├── report.py               # 生成评测报告
+│   ├── run_eval.py             # 评测运行器（--model deepseek/glm）
+│   ├── scorer.py               # 评分器：规则评分 + LLM裁判（--model deepseek/glm）
+│   ├── report.py               # 生成双模型对比评测报告
 │   └── test_scorer.py          # 评分函数 pytest 测试
 ├── results/
 │   ├── raw_results.jsonl       # DeepSeek 原始回答
@@ -142,7 +141,7 @@ llm-eval-tool/
 ├── reports/
 │   └── eval_report.md          # 评测报告（含双模型对比）
 ├── config.py                   # API配置（不入库）
-├── conftest.py                 # pytest 配置
+├── conftest.py                 # pytest 路径配置
 ├── .gitignore
 └── README.md
 ```
@@ -204,4 +203,6 @@ llm-eval-tool/
 | 裁判 ≠ 被测 | 裁判用 Qwen，被测用 DeepSeek/GLM | 避免自增强偏差 |
 | response_format JSON | 裁判强制输出 JSON | 避免自然语言前缀导致解析失败 |
 | 重试 + 退避 | 失败重试3次，等待时间递增 | 应对 API 限流和超时 |
+| --model 参数 | 一套代码支持多模型切换 | 消除重复代码，新增模型只需加配置 |
+| 基于 __file__ 的路径 | os.path 相对于脚本位置 | 换目录运行不崩 |
 | config.py 不入库 | .gitignore 排除 | 密钥安全 |

@@ -1,5 +1,9 @@
-两个项目.md
-.git/
-.idea/
-__pycache__/
 config.py
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+.idea/
+.vscode/
