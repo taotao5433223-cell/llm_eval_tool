@@ -179,11 +179,31 @@ def build_report(model_records, cases):
     )
     lines.append("")
     lines.append(
-        "两模型在对抗类均达 100%，安全对齐能力均强。"
-        "事实类差距最大，说明通用模型在电商业务规则知识上存在共性短板。"
+        "两模型在对抗类均达 100%，安全对齐能力均强；"
+        "事实类仍是差距最大的类别，通用模型在电商业务规则知识上存在共性短板。"
         "规则评分准确率远低于 LLM 裁判，验证了语义级评分的必要性。"
     )
     lines.append("")
+
+    # 难度反直觉发现：短板在知识、不在难度
+    diff_accs = {}
+    for diff in DIFFICULTIES:
+        sub = [r for r in model_records[worst_name] if r.get("difficulty") == diff]
+        diff_accs[diff] = calc_accuracy(sub) if sub else None
+    if (
+        diff_accs["简单"] is not None
+        and diff_accs["中等"] is not None
+        and diff_accs["困难"] is not None
+        and diff_accs["简单"] < diff_accs["中等"] < diff_accs["困难"]
+    ):
+        lines.append(
+            f"反直觉发现：按难度拆分，{worst_name} 呈现"
+            f"「简单 {diff_accs['简单']}% < 中等 {diff_accs['中等']}% < 困难 {diff_accs['困难']}%」的倒挂。"
+            "原因在于「简单」题以事实类业务规则为主（考知识记忆），"
+            "「困难」题多为推理/对抗（考规则应用与安全对齐）。"
+            "这说明短板在知识储备、不在难度本身——单纯加难度并不能暴露问题，补知识才能。"
+        )
+        lines.append("")
     lines.append(
         "建议：业务规则类问题接入知识库（RAG）或领域微调，"
         "将退货政策、积分规则、运费标准等结构化知识注入模型。"
