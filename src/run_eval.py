@@ -9,7 +9,7 @@ import requests
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-import config
+from llm_eval_tool import config
 
 # ---------------------------------------------------------------------------
 # 路径常量（基于 __file__，换目录运行也不崩）
